@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Damage Tracker Pro - Dual Putra Perkasa</title>
+  <link rel="stylesheet" href="style.css">
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+
+  <!-- Navbar -->
+  <header class="navbar">
+    <div class="nav-brand">
+      <span class="brand-icon">📦</span>
+      <div>
+        <h1>PRODUK DAMAGE</h1>
+        <p>Report Produk Damage Inbound & Handling</p>
+      </div>
+    </div>
+    <div class="nav-actions">
+      <button class="nav-tab active" id="btnTabDashboard" onclick="switchTab('dashboard')">📊 Dashboard Card</button>
+      <button class="nav-tab" id="btnTabAnalytics" onclick="switchTab('analytics')">📈 Analisis Bulanan</button>
+      <button class="nav-tab" id="btnTabForm" onclick="switchTab('form')">📝 Input BA Baru</button>
+      <button class="btn-admin" id="btnAdminToggle" onclick="toggleAdminLogin()">🔑 Mode Admin</button>
+    </div>
+  </header>
+
+  <div id="toast" class="toast hidden"></div>
+
+  <main class="main-container">
+
+    <!-- VIEW 1: DASHBOARD -->
+    <section id="dashboardView" class="view-section">
+      <!-- Toolbar Filter -->
+      <div class="toolbar">
+        <div class="search-box">
+          <span class="search-icon">🔍</span>
+          <input type="text" id="searchInput" placeholder="Cari Project, No BA, SKU, Keterangan..." oninput="applyFilters()">
+        </div>
+        <div class="filter-box">
+          <select id="monthFilter" onchange="applyFilters()">
+            <option value="ALL">Semua Bulan</option>
+          </select>
+        </div>
+        <div class="filter-box">
+          <select id="typeFilter" onchange="applyFilters()">
+            <option value="ALL">Semua Tipe Damage</option>
+            <option value="Inbound">Inbound</option>
+            <option value="Handling">Handling</option>
+          </select>
+        </div>
+        <div class="filter-box">
+          <select id="statusFilter" onchange="applyFilters()">
+            <option value="ALL">Semua Status BAP</option>
+            <option value="Open">Status: Open</option>
+            <option value="Close">Status: Close</option>
+          </select>
+        </div>
+        <button class="btn-primary" onclick="switchTab('form')">+ Laporan BA Baru</button>
+      </div>
+
+      <!-- Ringkasan Statistik -->
+      <div class="summary-bar" id="summaryBar">
+        <div class="summary-card">
+          <span class="summary-label">Total Laporan BA</span>
+          <span class="summary-value" id="statTotalBa">0</span>
+        </div>
+        <div class="summary-card">
+          <span class="summary-label">Total Qty Rusak</span>
+          <span class="summary-value" id="statTotalQty">0 Pcs</span>
+        </div>
+        <div class="summary-card status-open">
+          <span class="summary-label">Status OPEN</span>
+          <span class="summary-value" id="statTotalOpen">0</span>
+        </div>
+        <div class="summary-card status-close">
+          <span class="summary-label">Status CLOSE</span>
+          <span class="summary-value" id="statTotalClose">0</span>
+        </div>
+      </div>
+
+      <div id="loadingCards" class="loading-state">
+        <div class="spinner"></div>
+        <p>Memuat data laporan...</p>
+      </div>
+
+      <div id="cardGrid" class="card-grid"></div>
+    </section>
+
+    <!-- VIEW 2: ANALISIS BULANAN -->
+    <section id="analyticsView" class="view-section hidden">
+      <div class="analytics-grid">
+        <div class="chart-card">
+          <h3>📊 Tren Kerusakan per Bulan</h3>
+          <canvas id="monthlyTrendChart"></canvas>
+        </div>
+        <div class="chart-card">
+          <h3>⚖️ Rasio Inbound vs Handling</h3>
+          <canvas id="typeRatioChart"></canvas>
+        </div>
+      </div>
+
+      <div class="table-card mt-24">
+        <h3>📋 Rekapitulasi Damage per Project & Tipe Damage</h3>
+        <div class="table-responsive">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Project</th>
+                <th>Bulan</th>
+                <th>Qty Inbound</th>
+                <th>Qty Handling</th>
+                <th>Total Qty</th>
+                <th>Total BA</th>
+              </tr>
+            </thead>
+            <tbody id="projectMatrixBody">
+              <!-- Matrix rows rendered by JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- VIEW 3: FORM INPUT -->
+    <section id="formView" class="view-section hidden">
+      <div class="form-card">
+        <div class="form-header">
+          <h2>Formulir Laporan Barang Damage</h2>
+          <p>Isi detail kronologi kerusakan barang dan lampirkan dokumen Berita Acara (PDF) serta foto bukti fisik.</p>
+        </div>
+
+        <form id="damageForm" onsubmit="handleFormSubmit(event)">
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="projectInput">Nama Project <span class="required">*</span></label>
+              <input type="text" id="projectInput" placeholder="Contoh: 322-RICH" required>
+            </div>
+
+            <div class="form-group">
+              <label for="noBaInput">No. Berita Acara (BA) <span class="required">*</span></label>
+              <input type="text" id="noBaInput" placeholder="Contoh: BA-2026-089" required>
+            </div>
+
+            <div class="form-group">
+              <label for="typeInput">Tipe Damage <span class="required">*</span></label>
+              <select id="typeInput" required>
+                <option value="">-- Pilih Tipe Damage --</option>
+                <option value="Inbound">Inbound (Penerimaan / Unloading)</option>
+                <option value="Handling">Handling (Pergudangan / Forklift)</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="qtyInput">Jumlah (Qty) <span class="required">*</span></label>
+              <input type="number" id="qtyInput" min="1" placeholder="1" required>
+            </div>
+
+            <div class="form-group">
+              <label for="statusBapInput">Status BAP <span class="required">*</span></label>
+              <select id="statusBapInput" onchange="togglePenyelesaian('statusBapInput', 'penyelesaianGroup')" required>
+                <option value="Open">Open</option>
+                <option value="Close">Close</option>
+              </select>
+            </div>
+
+            <div class="form-group hidden" id="penyelesaianGroup">
+              <label for="penyelesaianInput">Penyelesaian Kerusakan <span class="required">*</span></label>
+              <select id="penyelesaianInput">
+                <option value="Tarik Pabrik">Tarik Pabrik</option>
+                <option value="Klaim">Klaim</option>
+              </select>
+            </div>
+
+            <div class="form-group full-width">
+              <label for="skuInput">SKU / Nama Barang <span class="required">*</span></label>
+              <input type="text" id="skuInput" placeholder="Contoh: 322-10278 / RICH'S GOLD LABEL" required>
+            </div>
+
+            <div class="form-group full-width">
+              <label for="keteranganInput">Keterangan / Kronologi Kerusakan <span class="required">*</span></label>
+              <textarea id="keteranganInput" rows="4" placeholder="Jelaskan detail kronologi penyebab dan kondisi kerusakan..." required></textarea>
+            </div>
+
+            <div class="form-group full-width">
+              <label for="pdfFileInput">Upload PDF Berita Acara <span class="required">*</span></label>
+              <input type="file" id="pdfFileInput" accept="application/pdf" required>
+            </div>
+
+            <div class="form-group full-width">
+              <label for="photosInput">Upload Foto-Foto Kerusakan <span class="required">*</span></label>
+              <input type="file" id="photosInput" accept="image/*" multiple required>
+            </div>
+          </div>
+
+          <div class="form-actions">
+            <button type="button" class="btn-secondary" onclick="switchTab('dashboard')">Batal</button>
+            <button type="submit" id="btnSubmit" class="btn-primary">Kirim & Buat Folder Drive</button>
+          </div>
+        </form>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- MODAL EDIT ADMIN -->
+  <div id="editModal" class="modal-overlay hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>✏️ Edit Laporan Damage</h3>
+        <button class="btn-close" onclick="closeEditModal()">&times;</button>
+      </div>
+      <form id="editForm" onsubmit="handleEditSubmit(event)">
+        <input type="hidden" id="editRowIndex">
+        
+        <div class="form-group mb-12">
+          <label>Nama Project</label>
+          <input type="text" id="editProject" required>
+        </div>
+
+        <div class="form-group mb-12">
+          <label>Tipe Damage</label>
+          <select id="editTipe" required>
+            <option value="Inbound">Inbound</option>
+            <option value="Handling">Handling</option>
+          </select>
+        </div>
+
+        <div class="form-group mb-12">
+          <label>Status BAP</label>
+          <select id="editStatusBap" onchange="togglePenyelesaian('editStatusBap', 'editPenyelesaianGroup')" required>
+            <option value="Open">Open</option>
+            <option value="Close">Close</option>
+          </select>
+        </div>
+
+        <div class="form-group mb-12 hidden" id="editPenyelesaianGroup">
+          <label>Penyelesaian Kerusakan</label>
+          <select id="editPenyelesaian">
+            <option value="Tarik Pabrik">Tarik Pabrik</option>
+            <option value="Klaim">Klaim</option>
+          </select>
+        </div>
+
+        <div class="form-group mb-12">
+          <label>SKU / Nama Barang</label>
+          <input type="text" id="editSku" required>
+        </div>
+
+        <div class="form-group mb-12">
+          <label>Jumlah (Qty)</label>
+          <input type="number" id="editQty" min="1" required>
+        </div>
+
+        <div class="form-group mb-12">
+          <label>Keterangan / Kronologi</label>
+          <textarea id="editKeterangan" rows="3" required></textarea>
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" class="btn-secondary" onclick="closeEditModal()">Batal</button>
+          <button type="submit" id="btnSaveEdit" class="btn-primary">Simpan Perubahan</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
