@@ -67,12 +67,59 @@ function toggleAdminLogin() {
     }
   }
 }
+// HELPER PEMBACA BERBAGAI FORMAT TANGGAL DI GOOGLE SHEETS
+function parseCustomDate(rawDate) {
+  if (!rawDate) return "Lainnya";
 
+  // 1. Jika Google Sheets mengembalikan objek Date bawaan
+  if (rawDate instanceof Date && !isNaN(rawDate.getTime())) {
+    return rawDate.toLocaleString('id-ID', { month: 'long', year: 'numeric' });
+  }
+
+  const strDate = rawDate.toString().trim();
+
+  // 2. Jika format string standar "YYYY-MM-DD" atau ISO string
+  const stdDate = new Date(strDate);
+  if (!isNaN(stdDate.getTime())) {
+    return stdDate.toLocaleString('id-ID', { month: 'long', year: 'numeric' });
+  }
+
+  // 3. Jika format tanggal "DD-MM-YYYY" atau "DD/MM/YYYY" (misal: 21-09-2026 / 21/09/2026)
+  const dmyMatch = strDate.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
+  if (dmyMatch) {
+    const day = parseInt(dmyMatch[1], 10);
+    const month = parseInt(dmyMatch[2], 10) - 1; // Index bulan JS (0-11)
+    const year = parseInt(dmyMatch[3], 10);
+    const customD = new Date(year, month, day);
+    if (!isNaN(customD.getTime())) {
+      return customD.toLocaleString('id-ID', { month: 'long', year: 'numeric' });
+    }
+  }
+
+  // 4. Map Bulan Bahasa Indonesia jika tanggal berbentuk teks (misal: "21 September 2026")
+  const indoMonths = [
+    "januari", "februari", "maret", "april", "mei", "juni",
+    "juli", "agustus", "september", "oktober", "november", "desember"
+  ];
+  
+  const lowerDate = strDate.toLowerCase();
+  for (let i = 0; i < indoMonths.length; i++) {
+    if (lowerDate.includes(indoMonths[i])) {
+      const yearMatch = strDate.match(/\b(20\d{2})\b/);
+      const yearStr = yearMatch ? yearMatch[1] : new Date().getFullYear();
+      const monthName = indoMonths[i].charAt(0).toUpperCase() + indoMonths[i].slice(1);
+      return `${monthName} ${yearStr}`;
+    }
+  }
+
+  return "Lainnya";
+}
+// FUNGSI LOAD DATA YANG SUDAH DIPERBARUI
 async function loadReports() {
   const loading = document.getElementById('loadingCards');
 
   if (!SPREADSHEET_ID || SPREADSHEET_ID.includes("PASTE_SPREADSHEET")) {
-    loading.innerHTML = `<p style="color:#d97706;">Silakan isi <b>SPREADSHEET_ID</b> pada baris pertama file script.js Anda.</p>`;
+    loading.innerHTML = `<p style="color:#d97706;">Silakan isi <b>SPREADSHEET_ID</b> pada file script.js.</p>`;
     return;
   }
 
@@ -96,19 +143,16 @@ async function loadReports() {
         photoUrls = c[9].v.toString().split(",");
       }
 
-      let rawDate = c[0] ? c[0].v : "";
-      let monthKey = "Lainnya";
-      if (rawDate) {
-        const d = new Date(rawDate);
-        if (!isNaN(d.getTime())) {
-          monthKey = d.toLocaleString('id-ID', { month: 'long', year: 'numeric' });
-        }
-      }
+      // Ambil tanggal mentah dari Kolom A (c[0])
+      let rawDate = c[0] ? (c[0].f || c[0].v) : "";
+      
+      // Parse bulan menggunakan parser fleksibel baru
+      let monthKey = parseCustomDate(rawDate);
 
       allReports.push({
         rowIndex: idx + 2,
         timestamp: rawDate,
-        monthKey: monthKey,
+        monthKey: monthKey, // Tampil sebagai "September 2026", "Agustus 2026", dsb.
         project: c[1] ? c[1].v : "",
         noBa: c[2] ? c[2].v : "",
         tipeDamage: c[3] ? c[3].v : "",
@@ -129,9 +173,14 @@ async function loadReports() {
     renderCards(allReports);
     updateSummary(allReports);
 
+    // Jika sedang di tab Analytics, otomatis update grafiknya
+    if (document.getElementById('analyticsView') && !document.getElementById('analyticsView').classList.contains('hidden')) {
+      renderAnalytics();
+    }
+
   } catch (err) {
     console.error("Error reading sheets:", err);
-    loading.innerHTML = `<p style="color:#dc2626;">Gagal memuat data Google Sheets. Pastikan Spreadsheet sudah di-Publish to Web.</p>`;
+    loading.innerHTML = `<p style="color:#dc2626;">Gagal memuat data Google Sheets.</p>`;
   }
 }
 
