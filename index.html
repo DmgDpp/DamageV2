@@ -5,12 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Barang Damage</title>
   <link rel="stylesheet" href="style.css">
-  <!-- Chart.js CDN -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
 
-  <!-- Navbar -->
+  <!-- Top Navbar -->
   <header class="navbar">
     <div class="nav-brand">
       <img src="DPP.png" alt="" width="250" height="">
@@ -34,7 +33,6 @@
 
     <!-- VIEW 1: DASHBOARD -->
     <section id="dashboardView" class="view-section">
-      <!-- Toolbar Filter -->
       <div class="toolbar">
         <div class="search-box">
           <span class="search-icon">🔍</span>
@@ -117,9 +115,7 @@
                 <th>Total BA</th>
               </tr>
             </thead>
-            <tbody id="projectMatrixBody">
-              <!-- Matrix rows rendered by JS -->
-            </tbody>
+            <tbody id="projectMatrixBody"></tbody>
           </table>
         </div>
       </div>
@@ -182,7 +178,7 @@
 
             <div class="form-group full-width">
               <label for="keteranganInput">Keterangan / Kronologi Kerusakan <span class="required">*</span></label>
-              <textarea id="keteranganInput" rows="4" placeholder="Jelaskan detail kronologi penyebab dan kondisi kerusakan..." required></textarea>
+              <textarea id="keteranganInput" rows="4" placeholder="Jelaskan detail kronologi penyebab..." required></textarea>
             </div>
 
             <div class="form-group full-width">
