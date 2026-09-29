@@ -1,6 +1,6 @@
 // ISI DENGAN ID SPREADSHEET DAN URL APPS SCRIPT ANDA
-const SPREADSHEET_ID = "1b8_-ul5N6Zld9O1A-xzgR-zHmkJ7xDSHyAPZgFAnnIg";
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxZeZ9y2G8_Lvnv160u_T9pjyz7pwMNSx6lgHO6tNjWAU683wphToNTm2BO8QBTOemeIg/exec";
+const SPREADSHEET_ID = "10BcwxXBWk2xmTZYl_pRrmEnaljClQ0z6UxdJKKZlUHc";
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycby230i3SBh-woI0VpHmGaiVKJbxv-pDccMHRnDjOUL059pQOJW-YbN1FMC_tOXn6yGA/exec";
 
 let allReports = [];
 let isAdminLoggedIn = false;
