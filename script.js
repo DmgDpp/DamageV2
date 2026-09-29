@@ -1,6 +1,8 @@
-// ISI DENGAN ID SPREADSHEET DAN URL APPS SCRIPT ANDA
-const SPREADSHEET_ID = "10BcwxXBWk2xmTZYl_pRrmEnaljClQ0z6UxdJKKZlUHc";
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycby230i3SBh-woI0VpHmGaiVKJbxv-pDccMHRnDjOUL059pQOJW-YbN1FMC_tOXn6yGA/exec";
+// ==========================================================================
+// KONFIGURASI UTAMA KONEKSI SPREADSHEET & APPS SCRIPT
+// ==========================================================================
+const SPREADSHEET_ID = "10BcwxXBWk2xmTZYl_pRrmEnaljClQ0z6UxdJKKZlUHc"; // ID Spreadsheet Anda
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycby230i3SBh-woI0VpHmGaiVKJbxv-pDccMHRnDjOUL059pQOJW-YbN1FMC_tOXn6yGA/exec";   // URL Web App Apps Script Anda
 
 let allReports = [];
 let isAdminLoggedIn = false;
@@ -70,7 +72,7 @@ async function loadReports() {
   const loading = document.getElementById('loadingCards');
 
   if (!SPREADSHEET_ID || SPREADSHEET_ID.includes("PASTE_SPREADSHEET")) {
-    loading.innerHTML = `<p style="color:#d97706;">Silakan isi <b>SPREADSHEET_ID</b> pada file script.js.</p>`;
+    loading.innerHTML = `<p style="color:#d97706;">Silakan isi <b>SPREADSHEET_ID</b> pada baris pertama file script.js Anda.</p>`;
     return;
   }
 
@@ -94,7 +96,6 @@ async function loadReports() {
         photoUrls = c[9].v.toString().split(",");
       }
 
-      // Ambil String Tanggal / Bulan
       let rawDate = c[0] ? c[0].v : "";
       let monthKey = "Lainnya";
       if (rawDate) {
@@ -130,7 +131,7 @@ async function loadReports() {
 
   } catch (err) {
     console.error("Error reading sheets:", err);
-    loading.innerHTML = `<p style="color:#dc2626;">Gagal memuat data Google Sheets.</p>`;
+    loading.innerHTML = `<p style="color:#dc2626;">Gagal memuat data Google Sheets. Pastikan Spreadsheet sudah di-Publish to Web.</p>`;
   }
 }
 
@@ -163,6 +164,23 @@ function renderCards(reports) {
     const typeClass = item.tipeDamage ? item.tipeDamage.toLowerCase() : 'inbound';
     const currentStatus = item.statusBap && item.statusBap !== "" ? item.statusBap : "Open";
     const statusClass = currentStatus.toLowerCase();
+
+    // Quick Resolution Buttons
+    let quickActions = '';
+    if (currentStatus === 'Open') {
+      quickActions = `
+        <div class="card-actions-quick">
+          <button onclick="quickSetResolution(${item.rowIndex}, 'Close', 'Tarik Pabrik')" class="btn-quick tarik">🏭 Tarik Pabrik</button>
+          <button onclick="quickSetResolution(${item.rowIndex}, 'Close', 'Klaim')" class="btn-quick klaim">📝 Klaim</button>
+        </div>
+      `;
+    } else {
+      quickActions = `
+        <div class="card-actions-quick">
+          <button onclick="quickSetResolution(${item.rowIndex}, 'Open', '-')" class="btn-quick reopen">🔓 Reopen BAP</button>
+        </div>
+      `;
+    }
 
     let actionButtons = '';
     if (isAdminLoggedIn) {
@@ -199,6 +217,9 @@ function renderCards(reports) {
           <strong>Kronologi / Keterangan:</strong><br>
           ${item.keterangan}
         </div>
+
+        ${quickActions}
+
         <div class="card-footer">
           ${actionButtons}
         </div>
@@ -206,6 +227,29 @@ function renderCards(reports) {
     `;
     grid.appendChild(card);
   });
+}
+
+// Aksi Cepat Penyelesaian BAP (Tarik Pabrik / Klaim / Reopen)
+function quickSetResolution(rowIndex, newStatus, newPenyelesaian) {
+  showToast(`⏳ Memperbarui Status BAP ke ${newStatus}...`);
+
+  const statusBap = encodeURIComponent(newStatus);
+  const penyelesaian = encodeURIComponent(newPenyelesaian);
+
+  const updateUrl = `${SCRIPT_URL}?action=UPDATE&rowIndex=${rowIndex}&statusBap=${statusBap}&penyelesaian=${penyelesaian}&callback=onQuickUpdateComplete`;
+
+  window.onQuickUpdateComplete = function(response) {
+    if (response && response.result === 'success') {
+      showToast(`Status BAP Berhasil Diperbarui (${newStatus})!`);
+      setTimeout(loadReports, 1000);
+    } else {
+      alert("Gagal memperbarui status BAP.");
+    }
+  };
+
+  const script = document.createElement('script');
+  script.src = updateUrl;
+  document.body.appendChild(script);
 }
 
 function updateSummary(reports) {
@@ -260,7 +304,6 @@ function applyFilters() {
   updateSummary(filtered);
 }
 
-// Render Analisis Charts & Table Matrix
 function renderAnalytics() {
   const matrixBody = document.getElementById('projectMatrixBody');
   matrixBody.innerHTML = '';
@@ -295,27 +338,24 @@ function renderAnalytics() {
     }
     groups[key].totalBa += 1;
 
-    // Monthly Trend
     if (!monthGroup[m]) monthGroup[m] = 0;
     monthGroup[m] += qtyNum;
   });
 
-  // Populate Table Matrix
   Object.values(groups).forEach(g => {
     const totalQty = g.inboundQty + g.handlingQty;
     matrixBody.innerHTML += `
       <tr>
         <td><strong>${g.project}</strong></td>
         <td>${g.month}</td>
-        <td><span style="color:#15803d; font-weight:600;">${g.inboundQty} Pcs</span></td>
-        <td><span style="color:#b45309; font-weight:600;">${g.handlingQty} Pcs</span></td>
+        <td><span style="color:#34d399; font-weight:600;">${g.inboundQty} Pcs</span></td>
+        <td><span style="color:#fbbf24; font-weight:600;">${g.handlingQty} Pcs</span></td>
         <td><strong>${totalQty} Pcs</strong></td>
         <td>${g.totalBa} BA</td>
       </tr>
     `;
   });
 
-  // Render Charts
   renderTrendChart(Object.keys(monthGroup), Object.values(monthGroup));
   renderRatioChart(totalInbound, totalHandling);
 }
@@ -331,7 +371,7 @@ function renderTrendChart(labels, data) {
       datasets: [{
         label: 'Total Qty Damage',
         data: data,
-        backgroundColor: '#2563eb',
+        backgroundColor: '#3b82f6',
         borderRadius: 6
       }]
     },
@@ -349,7 +389,7 @@ function renderRatioChart(inboundQty, handlingQty) {
       labels: ['Inbound', 'Handling'],
       datasets: [{
         data: [inboundQty, handlingQty],
-        backgroundColor: ['#22c55e', '#f59e0b']
+        backgroundColor: ['#10b981', '#f59e0b']
       }]
     },
     options: { responsive: true }
