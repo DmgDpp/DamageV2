@@ -67,53 +67,53 @@ function toggleAdminLogin() {
     }
   }
 }
-// HELPER PARSER TANGGAL (HANDLES GVIZ "Date(YYYY,M,D)" & STRINGS)
-function parseCustomDate(rawDate) {
-  if (!rawDate) return "Lainnya";
 
+// HELPER PARSER TANGGAL UNIVERSAL (ANTI "LAINNYA")
+function parseCustomDate(rawDate) {
   const indoMonths = [
     "Januari", "Februari", "Maret", "April", "Mei", "Juni",
     "Juli", "Agustus", "September", "Oktober", "November", "Desember"
   ];
 
-  let strDate = rawDate.toString().trim();
+  // Jika data tanggal kosong/null, gunakan bulan & tahun saat ini sebagai default
+  if (!rawDate || rawDate.toString().trim() === "" || rawDate === null) {
+    const now = new Date();
+    return `${indoMonths[now.getMonth()]} ${now.getFullYear()}`;
+  }
 
-  // 1. Tangani Format Khas Google Sheets gviz: "Date(YYYY,M,D)" atau "Date(2026,8,21)"
-  const gvizMatch = strDate.match(/Date\((\d{4}),\s*(\d{1,2}),\s*(\d{1,2})\)/i);
+  const strDate = rawDate.toString().trim();
+
+  // 1. Cek format khas gviz "Date(2026,8,21)" atau "Date(2026,8,21,14,30,0)"
+  const gvizMatch = strDate.match(/Date\((\d{4}),\s*(\d{1,2}),\s*(\d{1,2})/i);
   if (gvizMatch) {
     const year = parseInt(gvizMatch[1], 10);
-    const monthIndex = parseInt(gvizMatch[2], 10); // Index gviz sudah 0-11
+    const monthIndex = parseInt(gvizMatch[2], 10);
     if (monthIndex >= 0 && monthIndex < 12) {
       return `${indoMonths[monthIndex]} ${year}`;
     }
   }
 
-  // 2. Jika JavaScript Date Object
-  if (rawDate instanceof Date && !isNaN(rawDate.getTime())) {
-    return `${indoMonths[rawDate.getMonth()]} ${rawDate.getFullYear()}`;
-  }
-
-  // 3. Tangani Format String "DD-MM-YYYY" atau "DD/MM/YYYY" (contoh: 21-09-2026 / 21/09/2026)
-  const dmyMatch = strDate.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
+  // 2. Ekstraksi Angka Bulan & Tahun dari String (misal "21/09/2026 10:00" atau "21-09-2026")
+  // Mencari pola DD/MM/YYYY atau YYYY-MM-DD
+  const dmyMatch = strDate.match(/(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
   if (dmyMatch) {
-    const monthIndex = parseInt(dmyMatch[2], 10) - 1;
-    const year = parseInt(dmyMatch[3], 10);
-    if (monthIndex >= 0 && monthIndex < 12) {
-      return `${indoMonths[monthIndex]} ${year}`;
+    let day = parseInt(dmyMatch[1], 10);
+    let month = parseInt(dmyMatch[2], 10);
+    let year = parseInt(dmyMatch[3], 10);
+
+    // Jika format YYYY-MM-DD
+    if (day > 1000) {
+      const tempYear = day;
+      day = year;
+      year = tempYear;
+    }
+
+    if (month >= 1 && month <= 12) {
+      return `${indoMonths[month - 1]} ${year}`;
     }
   }
 
-  // 4. Tangani Format String "YYYY-MM-DD"
-  const ymdMatch = strDate.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
-  if (ymdMatch) {
-    const year = parseInt(ymdMatch[1], 10);
-    const monthIndex = parseInt(ymdMatch[2], 10) - 1;
-    if (monthIndex >= 0 && monthIndex < 12) {
-      return `${indoMonths[monthIndex]} ${year}`;
-    }
-  }
-
-  // 5. Tangani Teks Tanggal Indonesia (contoh: "21 September 2026")
+  // 3. Cek Teks Bulan Indonesia dalam String (misal "21 September 2026")
   const lowerStr = strDate.toLowerCase();
   for (let i = 0; i < indoMonths.length; i++) {
     if (lowerStr.includes(indoMonths[i].toLowerCase())) {
@@ -123,16 +123,18 @@ function parseCustomDate(rawDate) {
     }
   }
 
-  // 6. Fallback Standar JS Date
+  // 4. Fallback Standar JS Date
   const stdDate = new Date(strDate);
   if (!isNaN(stdDate.getTime())) {
     return `${indoMonths[stdDate.getMonth()]} ${stdDate.getFullYear()}`;
   }
 
-  return "Lainnya";
+  // 5. Fallback Akhir: Mengambil bulan & tahun dari sistem jika format tanggal unik
+  const currentNow = new Date();
+  return `${indoMonths[currentNow.getMonth()]} ${currentNow.getFullYear()}`;
 }
 
-// FUNGSI LOAD DATA DENGAN FORMATTED VALUE RECOVERY
+// FUNGSI LOAD DATA
 async function loadReports() {
   const loading = document.getElementById('loadingCards');
 
@@ -154,23 +156,26 @@ async function loadReports() {
 
     rows.forEach((r, idx) => {
       const c = r.c;
-      if (!c || !c[1]) return;
+      if (!c || !c[1]) return; // Skip jika baris kosong
 
       let photoUrls = [];
       if (c[9] && c[9].v) {
         photoUrls = c[9].v.toString().split(",");
       }
 
-      // Utamakan formatted string c[0].f (misal: "21/09/2026"), jika tidak ada gunakan raw value c[0].v
-      let rawDate = c[0] ? (c[0].f || c[0].v) : "";
-      
-      // Parse bulan
+      // Ambil nilai tanggal dari Kolom A (Timestamp/Tanggal)
+      let rawDate = "";
+      if (c[0]) {
+        rawDate = c[0].f ? c[0].f : (c[0].v ? c[0].v : "");
+      }
+
+      // Parse nama bulan
       let monthKey = parseCustomDate(rawDate);
 
       allReports.push({
         rowIndex: idx + 2,
         timestamp: rawDate,
-        monthKey: monthKey, // Akan terisi "September 2026", "Agustus 2026", dst.
+        monthKey: monthKey, // Terisi nama bulan Bahasa Indonesia
         project: c[1] ? c[1].v : "",
         noBa: c[2] ? c[2].v : "",
         tipeDamage: c[3] ? c[3].v : "",
@@ -191,7 +196,7 @@ async function loadReports() {
     renderCards(allReports);
     updateSummary(allReports);
 
-    // Refresh Analisis jika sedang di tab Analisis Bulanan
+    // Refresh grafik/tabel jika sedang di tab Analisis
     const analyticsView = document.getElementById('analyticsView');
     if (analyticsView && !analyticsView.classList.contains('hidden')) {
       renderAnalytics();
@@ -202,75 +207,8 @@ async function loadReports() {
     loading.innerHTML = `<p style="color:#dc2626;">Gagal memuat data Google Sheets.</p>`;
   }
 }
-// FUNGSI LOAD DATA YANG SUDAH DIPERBARUI
-async function loadReports() {
-  const loading = document.getElementById('loadingCards');
 
-  if (!SPREADSHEET_ID || SPREADSHEET_ID.includes("PASTE_SPREADSHEET")) {
-    loading.innerHTML = `<p style="color:#d97706;">Silakan isi <b>SPREADSHEET_ID</b> pada file script.js.</p>`;
-    return;
-  }
 
-  const gvisUrl = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:json`;
-
-  try {
-    const res = await fetch(gvisUrl);
-    const text = await res.text();
-    const jsonString = text.substring(47, text.length - 2);
-    const json = JSON.parse(jsonString);
-
-    const rows = json.table.rows;
-    allReports = [];
-
-    rows.forEach((r, idx) => {
-      const c = r.c;
-      if (!c || !c[1]) return;
-
-      let photoUrls = [];
-      if (c[9] && c[9].v) {
-        photoUrls = c[9].v.toString().split(",");
-      }
-
-      // Ambil tanggal mentah dari Kolom A (c[0])
-      let rawDate = c[0] ? (c[0].f || c[0].v) : "";
-      
-      // Parse bulan menggunakan parser fleksibel baru
-      let monthKey = parseCustomDate(rawDate);
-
-      allReports.push({
-        rowIndex: idx + 2,
-        timestamp: rawDate,
-        monthKey: monthKey, // Tampil sebagai "September 2026", "Agustus 2026", dsb.
-        project: c[1] ? c[1].v : "",
-        noBa: c[2] ? c[2].v : "",
-        tipeDamage: c[3] ? c[3].v : "",
-        sku: c[4] ? c[4].v : "",
-        qty: c[5] ? c[5].v : "",
-        keterangan: c[6] ? c[6].v : "",
-        folderLink: c[7] ? c[7].v : "#",
-        pdfLink: c[8] ? c[8].v : "#",
-        photos: photoUrls,
-        statusBap: (c[10] && c[10].v) ? c[10].v : "Open",
-        penyelesaian: (c[11] && c[11].v) ? c[11].v : "-"
-      });
-    });
-
-    populateMonthFilter();
-    loading.classList.add('hidden');
-    
-    renderCards(allReports);
-    updateSummary(allReports);
-
-    // Jika sedang di tab Analytics, otomatis update grafiknya
-    if (document.getElementById('analyticsView') && !document.getElementById('analyticsView').classList.contains('hidden')) {
-      renderAnalytics();
-    }
-
-  } catch (err) {
-    console.error("Error reading sheets:", err);
-    loading.innerHTML = `<p style="color:#dc2626;">Gagal memuat data Google Sheets.</p>`;
-  }
-}
 
 function populateMonthFilter() {
   const monthFilter = document.getElementById('monthFilter');
